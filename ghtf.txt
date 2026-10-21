@@ -1,0 +1,91 @@
+import json
+import threading
+
+__id__ = "jammer_controller_md3e"
+__name__ = "RF Jammer Controller MD3E"
+__version__ = "1.0.0"
+__author__ = "Dolphy"
+__description__ = "Material 3 Expressive UI to control an external RF jammer module"
+__icon__ = "rounded:settings_input_antenna"
+__permissions__ = ["bluetooth", "network"]
+
+class JammerControllerMd3e(BasePlugin):
+    def __init__(self):
+        super().__init__()
+        self.is_jamming = False
+        self.status = "Standby"
+        self.target_bands = ["GSM 900", "LTE 1800", "3G 2100"]
+        self.power_level = 50 # В процентах
+
+    def on_plugin_load(self):
+        self.add_module(
+            "RF Jammer Controller",
+            "Control external hardware jamming modules",
+            "antenna",
+            "main",
+            "OTHER",
+            10,
+        )
+
+    def toggle_jammer(self):
+        self.is_jamming = not self.is_jamming
+        if self.is_jamming:
+            self.status = "JAMMING ACTIVE"
+            # Здесь код отправки команды на модуль (ESP32/Arduino)
+            # self.api.sendBluetoothCommand("START_JAM")
+            print("Sending START command to hardware...")
+        else:
+            self.status = "Standby"
+            # self.api.sendBluetoothCommand("STOP_JAM")
+            print("Sending STOP command to hardware...")
+        self.refresh()
+
+    def set_power(self, level):
+        self.power_level = int(level)
+        # self.api.sendBluetoothCommand(f"SET_POWER {self.power_level}")
+        self.refresh()
+
+    def screen_main(self, ui, api, state):
+        color = ui.color("error") if self.is_jamming else ui.color("primary")
+        
+        return ui.scaffold(
+            title="RF Jammer",
+            content=ui.lazy_column([
+                ui.card([
+                    ui.row([
+                        ui.icon("settings_input_antenna", 48),
+                        ui.column([
+                            ui.text("Device Status", "titleMedium"),
+                            ui.text(self.status, "headlineSmall", color=color),
+                        ], spacing=2),
+                    ], spacing=12),
+                ]),
+                
+                ui.card([
+                    ui.text("Hardware Module: ESP32-RF-V1", "bodyMedium"),
+                    ui.text("Connection: Bluetooth", "bodySmall"),
+                    ui.row([
+                        ui.chip("Battery: 88%", True),
+                        ui.chip("Temp: 42°C", True),
+                    ], spacing=6),
+                ]),
+
+                ui.text("Target Frequencies", "titleMedium"),
+                ui.segmented_list([
+                    ui.settings_row("GSM 900 MHz", "Active" if "GSM 900" in self.target_bands else "Off", "cell_tower"),
+                    ui.settings_row("LTE 1800 MHz", "Active" if "LTE 1800" in self.target_bands else "Off", "4g_mobiledata"),
+                    ui.settings_row("3G 2100 MHz", "Active" if "3G 2100" in self.target_bands else "Off", "3g_mobiledata"),
+                ]),
+
+                ui.text("Output Power: " + str(self.power_level) + "%", "titleMedium"),
+                ui.slider(
+                    value=self.power_level,
+                    min_value=0,
+                    max_value=100,
+                    on_change=self.set_power
+                ),
+                
+                ui.button("STOP JAMMING" if self.is_jamming else "START JAMMING", self.toggle_jammer, fill_max_width=True),
+                ui.text("WARNING: Jamming radio frequencies is illegal in most countries.", "bodySmall", color=ui.color("error")),
+            ], padding=16, spacing=12, fill_max_size=True),
+        )
